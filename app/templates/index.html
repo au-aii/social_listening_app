@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>自動ソーシャルリスニング</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        #reportResult { white-space: pre-wrap; border: 1px solid #ccc; padding: 10px; margin-top: 20px; background-color: #f9f9f9; }
+        .loader { border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin-top:10px; display: none; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <h1>自動ソーシャルリスニング</h1>
+    <label for="keywordInput">調査したいテーマやキーワード:</label><br>
+    <input type="text" id="keywordInput" size="50" value="AIエージェント 雇用"><br><br>
+    <button onclick="startAnalysis()">分析開始</button>
+
+    <div id="statusMessage"></div>
+    <div class="loader" id="loader"></div>
+    <h2>簡易レポート:</h2>
+    <div id="reportResult">ここに結果が表示されます。</div>
+    <img src="pie_chart_base64" alt="感情分析円グラフ">
+
+    <script>
+        let taskId = null;
+        let intervalId = null;
+
+        async function startAnalysis() {
+            const keyword = document.getElementById('keywordInput').value;
+            if (!keyword) {
+                alert('キーワードを入力してください。');
+                return;
+            }
+
+            document.getElementById('statusMessage').textContent = '分析リクエスト中...';
+            document.getElementById('loader').style.display = 'block';
+            document.getElementById('reportResult').textContent = '分析中です...';
+
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keyword: keyword })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    taskId = data.task_id;
+                    document.getElementById('statusMessage').textContent = `分析開始しました (Task ID: ${taskId})。結果をポーリングします...`;
+                    // ポーリング開始
+                    intervalId = setInterval(checkStatus, 3000); // 3秒ごとにステータス確認
+                } else {
+                    document.getElementById('statusMessage').textContent = `エラー: ${data.error || '不明なエラー'}`;
+                    document.getElementById('loader').style.display = 'none';
+                }
+            } catch (error) {
+                document.getElementById('statusMessage').textContent = `リクエストエラー: ${error}`;
+                document.getElementById('loader').style.display = 'none';
+            }
+        }
+
+        async function checkStatus() {
+            if (!taskId) return;
+
+            try {
+                const response = await fetch(`/status/${taskId}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('statusMessage').textContent = `ステータス: ${data.status} (Task ID: ${taskId})`;
+                    if (data.status === 'completed' || data.status === 'failed') {
+                        clearInterval(intervalId); // ポーリング停止
+                        intervalId = null;
+                        taskId = null;
+                        document.getElementById('reportResult').textContent = data.result || '結果がありません。';
+                        document.getElementById('loader').style.display = 'none';
+                    } else if (data.status === 'processing') {
+                        // 処理中
+                    }
+                } else {
+                    document.getElementById('statusMessage').textContent = `ステータス確認エラー: ${data.error || '不明なエラー'}`;
+                    clearInterval(intervalId);
+                    intervalId = null;
+                    document.getElementById('loader').style.display = 'none';
+                }
+            } catch (error) {
+                document.getElementById('statusMessage').textContent = `ステータス確認リクエストエラー: ${error}`;
+                clearInterval(intervalId);
+                intervalId = null;
+                document.getElementById('loader').style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
