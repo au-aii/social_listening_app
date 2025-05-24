@@ -6,3 +6,21 @@ __pycache__/
 
 #macOS
 .DS_Store
+
+#CDK build output
+cdk.out/
+
+# Dependency directories
+node_modules/
+frontend/node_modules/
+
+# Rockfile specific
+package-lock.json
+frontend/package-lock.json
+
+#frontend build output
+frontend/build/
+
+#other
+*.log
+
